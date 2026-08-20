@@ -8,43 +8,64 @@
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-<header class="app-header">
-  <div class="title">
-    <img id="logoImg" class="logo" src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
-    <div>
-      <h1>Control de Tarjetas Horarias</h1>
-      <div class="subtitle">Agroterra New Holland</div>
+
+<div id="pickerScreen" class="login-box">
+  <img id="logoImgPicker" class="logo visible" style="height:60px;margin-bottom:10px;" src="/logo.png" alt="" onerror="this.style.display='none'" />
+  <h2>Control de Tarjetas Horarias</h2>
+  <p>¿Quién sos?</p>
+  <div id="pickerList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px;"></div>
+</div>
+
+<div id="appScreen" style="display:none;">
+  <header class="app-header">
+    <div class="title">
+      <img id="logoImg" class="logo" src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
+      <div>
+        <h1>Control de Tarjetas Horarias</h1>
+        <div class="subtitle">Agroterra New Holland</div>
+      </div>
     </div>
-  </div>
-  <div class="subtitle">Vista para técnicos · solo lectura</div>
-</header>
+    <div class="subtitle" id="whoSubtitle">Vista para técnicos · solo lectura</div>
+  </header>
 
-<main>
-  <div class="card">
-    <strong>Tarjetas pendientes de esta semana</strong>
-    <div id="pendingBox" style="margin-top:10px;">Cargando...</div>
-  </div>
-
-  <div class="card">
-    <div class="month-nav">
-      <button id="prevBtn">‹ Mes anterior</button>
-      <span class="month-label" id="monthLabel"></span>
-      <button id="nextBtn">Mes siguiente ›</button>
-      <button id="todayBtn">Hoy</button>
+  <main>
+    <div class="card">
+      <strong>Tarjetas pendientes de esta semana</strong>
+      <div id="pendingBox" style="margin-top:10px;">Cargando...</div>
     </div>
-    <div id="gridBox">Cargando...</div>
-    <div class="legend" id="legendBox"></div>
-  </div>
 
-  <div class="sync-note" id="syncNote"></div>
-</main>
+    <div class="card">
+      <div class="month-nav">
+        <button id="prevBtn">‹ Mes anterior</button>
+        <span class="month-label" id="monthLabel"></span>
+        <button id="nextBtn">Mes siguiente ›</button>
+        <button id="todayBtn">Hoy</button>
+      </div>
+      <div id="gridBox">Cargando...</div>
+      <div class="legend" id="legendBox"></div>
+    </div>
+
+    <div class="sync-note" id="syncNote"></div>
+    <div style="text-align:center;margin-top:6px;">
+      <a href="#" id="changeTechLink" style="font-size:12px;color:var(--muted);">No soy yo, cambiar técnico</a>
+    </div>
+  </main>
+</div>
 
 <footer>Se actualiza automáticamente. Si no ves cambios recientes, actualizá la página.</footer>
 
 <script src="/shared.js"></script>
 <script>
+  const STORAGE_KEY = "tarjetas_tech_id";
+
+  const pickerScreen = document.getElementById("pickerScreen");
+  const pickerList = document.getElementById("pickerList");
+  const appScreen = document.getElementById("appScreen");
+  const whoSubtitle = document.getElementById("whoSubtitle");
+
   let year, month;
   let state = { technicians: [], entries: {} };
+  let myTechId = localStorage.getItem(STORAGE_KEY) || null;
   const today = new Date();
   year = today.getFullYear();
   month = today.getMonth();
@@ -57,14 +78,51 @@
 
   renderLegend(legendBox);
 
+  function showPicker() {
+    const techs = state.technicians || [];
+    if (techs.length === 0) {
+      pickerList.innerHTML = '<p class="empty">Todavía no hay técnicos cargados. Pedile a tu administrador que los agregue.</p>';
+    } else {
+      pickerList.innerHTML = "";
+      techs.forEach((t) => {
+        const btn = document.createElement("button");
+        btn.className = "primary-btn";
+        btn.style.width = "100%";
+        btn.textContent = t.name;
+        btn.addEventListener("click", () => {
+          myTechId = t.id;
+          localStorage.setItem(STORAGE_KEY, myTechId);
+          pickerScreen.style.display = "none";
+          appScreen.style.display = "block";
+          draw();
+        });
+        pickerList.appendChild(btn);
+      });
+    }
+    pickerScreen.style.display = "block";
+    appScreen.style.display = "none";
+  }
+
+  document.getElementById("changeTechLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    localStorage.removeItem(STORAGE_KEY);
+    myTechId = null;
+    showPicker();
+  });
+
   function draw() {
+    const me = (state.technicians || []).find((t) => t.id === myTechId);
+    if (me) {
+      whoSubtitle.textContent = "Vista de " + me.name + " · solo lectura";
+    }
     monthLabel.textContent = formatMonthLabel(year, month);
-    renderGrid({ container: gridBox, state, year, month, editable: false });
+    renderGrid({ container: gridBox, state, year, month, editable: false, onlyTechId: myTechId });
     drawPending();
   }
 
   function drawPending() {
-    const pending = pendingThisWeek(state, new Date());
+    const allPending = pendingThisWeek(state, new Date());
+    const pending = allPending.filter((p) => p.tech.id === myTechId);
     if (pending.length === 0) {
       pendingBox.innerHTML = `<span style="color:#2e7d32;font-weight:600;">Sin pendientes por ahora 🎉</span>`;
       return;
@@ -81,6 +139,15 @@
   async function load() {
     try {
       state = await fetchState();
+      const stillExists = (state.technicians || []).some((t) => t.id === myTechId);
+      if (!myTechId || !stillExists) {
+        localStorage.removeItem(STORAGE_KEY);
+        myTechId = null;
+        showPicker();
+        return;
+      }
+      pickerScreen.style.display = "none";
+      appScreen.style.display = "block";
       draw();
       syncNote.textContent = state.updatedAt ? "Última actualización: " + new Date(state.updatedAt).toLocaleString("es-AR") : "";
     } catch (e) {

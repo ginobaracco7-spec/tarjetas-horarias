@@ -110,12 +110,15 @@ function renderLegend(container) {
 // Calendario mensual compacto: una celda por día, con un chip chiquito por
 // técnico (sus iniciales, coloreado según el estado cargado ese día).
 // En modo editable, tocar un día abre el selector (definido en cada página).
-function renderGrid({ container, state, year, month, editable, onDayClick }) {
+function renderGrid({ container, state, year, month, editable, onDayClick, onlyTechId }) {
   const nDays = daysInMonth(year, month);
-  const techs = state.technicians || [];
+  const allTechs = state.technicians || [];
+  // Si se pide una vista personalizada, se sigue coloreando con la paleta
+  // completa (techColor mira allTechs) pero solo se dibuja ese técnico.
+  const techs = onlyTechId ? allTechs.filter((t) => t.id === onlyTechId) : allTechs;
   const today = todayKey();
 
-  if (techs.length === 0) {
+  if (allTechs.length === 0) {
     container.innerHTML = `<p class="empty">Todavía no hay técnicos cargados.</p>`;
     return;
   }
