@@ -124,8 +124,11 @@ function renderGrid({ container, state, year, month, editable, onDayClick, onlyT
   }
 
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // lunes=0
+  // Vista personal (un solo técnico): celdas grandes, pintadas enteras del
+  // color del estado del día, en vez de las burbujitas chicas de la vista general.
+  const bigMode = !!onlyTechId;
 
-  let html = '<div class="cal-wrap"><table class="cal"><thead><tr>';
+  let html = `<div class="cal-wrap${bigMode ? " cal-wrap-big" : ""}"><table class="cal${bigMode ? " cal-big" : ""}"><thead><tr>`;
   DAY_NAMES_MONDAY_FIRST.forEach((n) => { html += `<th>${n}</th>`; });
   html += "</tr></thead><tbody><tr>";
 
@@ -144,18 +147,30 @@ function renderGrid({ container, state, year, month, editable, onDayClick, onlyT
     if (isWeekend) cls.push("weekend");
     if (editable) cls.push("editable");
 
-    let dots = "";
-    techs.forEach((t) => {
-      const status = (state.entries[key] || {})[t.id] || null;
+    if (bigMode) {
+      const t = techs[0];
+      const status = t ? (state.entries[key] || {})[t.id] || null : null;
       const meta = status ? STATUS_META[status] : null;
-      if (meta) {
-        dots += `<span class="tech-dot" style="background:${meta.color};color:${meta.text}" title="${escapeHtml(t.name)}: ${meta.label}">${techInitials(t.name)}</span>`;
-      } else if (key <= today) {
-        dots += `<span class="tech-dot empty-dot" title="${escapeHtml(t.name)}: sin cargar"></span>`;
-      }
-    });
-
-    html += `<td class="${cls.join(" ")}" data-date="${key}"><div class="day-num">${d}</div><div class="tech-dots">${dots}</div></td>`;
+      const overdue = !status && key <= today;
+      if (overdue) cls.push("overdue");
+      const bg = meta ? meta.color : "";
+      const color = meta ? meta.text : "";
+      const style = meta ? `style="background:${bg};color:${color}"` : "";
+      const label = meta ? `<div class="day-status-label">${meta.label}</div>` : "";
+      html += `<td class="${cls.join(" ")}" ${style} data-date="${key}" title="${meta ? meta.label : ""}"><div class="day-num">${d}</div>${label}</td>`;
+    } else {
+      let dots = "";
+      techs.forEach((t) => {
+        const status = (state.entries[key] || {})[t.id] || null;
+        const meta = status ? STATUS_META[status] : null;
+        if (meta) {
+          dots += `<span class="tech-dot" style="background:${meta.color};color:${meta.text}" title="${escapeHtml(t.name)}: ${meta.label}">${techInitials(t.name)}</span>`;
+        } else if (key <= today) {
+          dots += `<span class="tech-dot empty-dot" title="${escapeHtml(t.name)}: sin cargar"></span>`;
+        }
+      });
+      html += `<td class="${cls.join(" ")}" data-date="${key}"><div class="day-num">${d}</div><div class="tech-dots">${dots}</div></td>`;
+    }
 
     col++;
     if (col === 7) { html += "</tr><tr>"; col = 0; }
