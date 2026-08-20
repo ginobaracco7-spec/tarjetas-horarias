@@ -24,11 +24,31 @@ const STATUS_ORDER = [
 
 const DAY_NAMES = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
 const DAY_NAMES_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+// Semana arrancando el lunes, para el calendario mensual.
+const DAY_NAMES_MONDAY_FIRST = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MES_ABBR = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const MES_NOMBRE = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
+
+// Paleta para distinguir técnicos dentro de una misma celda del calendario.
+const TECH_COLORS = [
+  "#00205B", "#2B4578", "#6C8FC7", "#8C6FB0", "#B0527A",
+  "#C77B2B", "#3F8F6B", "#4C7EA6", "#8A4B8C", "#5A6B8C",
+];
+
+function techColor(techId, techs) {
+  const idx = (techs || []).findIndex((t) => t.id === techId);
+  return TECH_COLORS[idx >= 0 ? idx % TECH_COLORS.length : 0];
+}
+
+function techInitials(name) {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 function pad(n) {
   return n.toString().padStart(2, "0");
@@ -87,7 +107,10 @@ function renderLegend(container) {
   container.innerHTML = html;
 }
 
-function renderGrid({ container, state, year, month, editable, onCellClick }) {
+// Calendario mensual compacto: una celda por día, con un chip chiquito por
+// técnico (sus iniciales, coloreado según el estado cargado ese día).
+// En modo editable, tocar un día abre el selector (definido en cada página).
+function renderGrid({ container, state, year, month, editable, onDayClick }) {
   const nDays = daysInMonth(year, month);
   const techs = state.technicians || [];
   const today = todayKey();
@@ -97,41 +120,52 @@ function renderGrid({ container, state, year, month, editable, onCellClick }) {
     return;
   }
 
-  let html = '<div class="grid-scroll"><table class="grid"><thead><tr><th class="day-col">Día</th>';
-  techs.forEach((t) => {
-    html += `<th>${escapeHtml(t.name)}</th>`;
-  });
-  html += "</tr></thead><tbody>";
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // lunes=0
 
+  let html = '<div class="cal-wrap"><table class="cal"><thead><tr>';
+  DAY_NAMES_MONDAY_FIRST.forEach((n) => { html += `<th>${n}</th>`; });
+  html += "</tr></thead><tbody><tr>";
+
+  for (let i = 0; i < firstDow; i++) html += '<td class="blank"></td>';
+
+  let col = firstDow;
   for (let d = 1; d <= nDays; d++) {
     const dateObj = new Date(year, month, d);
     const dow = dateObj.getDay();
     const key = dateKey(year, month, d);
     const isToday = key === today;
-    const isWeekend = dow === 0;
+    const isWeekend = dow === 0 || dow === 6;
 
-    html += `<tr class="${isToday ? "today-row" : ""}"><td class="day-col ${isWeekend ? "weekend" : ""}">${DAY_NAMES[dow]}<br>${pad(d)}-${MES_ABBR[month]}</td>`;
+    const cls = ["day-cell"];
+    if (isToday) cls.push("today");
+    if (isWeekend) cls.push("weekend");
+    if (editable) cls.push("editable");
 
+    let dots = "";
     techs.forEach((t) => {
       const status = (state.entries[key] || {})[t.id] || null;
       const meta = status ? STATUS_META[status] : null;
-      const bg = meta ? meta.color : "#ffffff";
-      const color = meta ? meta.text : "#333333";
-      const overdue = !status && key <= today;
-      const cls = ["cell"];
-      if (overdue) cls.push("overdue");
-      if (editable) cls.push("editable");
-      html += `<td class="${cls.join(" ")}" style="background:${bg};color:${color}" data-tech="${t.id}" data-date="${key}" title="${escapeHtml(t.name)} - ${key}${meta ? " - " + meta.label : ""}">${meta ? meta.short : ""}</td>`;
+      if (meta) {
+        dots += `<span class="tech-dot" style="background:${meta.color};color:${meta.text}" title="${escapeHtml(t.name)}: ${meta.label}">${techInitials(t.name)}</span>`;
+      } else if (key <= today) {
+        dots += `<span class="tech-dot empty-dot" title="${escapeHtml(t.name)}: sin cargar"></span>`;
+      }
     });
-    html += "</tr>";
-  }
 
-  html += "</tbody></table></div>";
+    html += `<td class="${cls.join(" ")}" data-date="${key}"><div class="day-num">${d}</div><div class="tech-dots">${dots}</div></td>`;
+
+    col++;
+    if (col === 7) { html += "</tr><tr>"; col = 0; }
+  }
+  if (col !== 0) {
+    for (let i = col; i < 7; i++) html += '<td class="blank"></td>';
+  }
+  html += "</tr></tbody></table></div>";
   container.innerHTML = html;
 
-  if (editable && onCellClick) {
+  if (editable && onDayClick) {
     container.querySelectorAll("td.editable").forEach((td) => {
-      td.addEventListener("click", () => onCellClick(td.dataset.tech, td.dataset.date, td));
+      td.addEventListener("click", () => onDayClick(td.dataset.date, td));
     });
   }
 }

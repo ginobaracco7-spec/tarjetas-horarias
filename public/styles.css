@@ -1,11 +1,13 @@
 :root {
-  --brand-primary: #1f5c3a;
-  --brand-secondary: #f2a71b;
-  --bg: #f5f6f4;
+  --brand-dark: #00205B;
+  --brand-light: #2B4578;
+  --brand-primary: #0F2A5C;
+  --brand-secondary: #6C8FC7;
+  --bg: #eef1f7;
   --card-bg: #ffffff;
-  --text: #26312b;
-  --muted: #6b7770;
-  --border: #e1e4de;
+  --text: #1b2230;
+  --muted: #6b7488;
+  --border: #dfe3ee;
 }
 
 * { box-sizing: border-box; }
@@ -18,9 +20,9 @@ body {
 }
 
 header.app-header {
-  background: var(--brand-primary);
+  background: linear-gradient(120deg, var(--brand-dark), var(--brand-light));
   color: #fff;
-  padding: 16px 20px;
+  padding: 14px 20px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -31,13 +33,16 @@ header.app-header {
 header.app-header .title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 header.app-header .title img.logo {
-  height: 36px;
+  height: 34px;
   width: auto;
   display: none;
+  background: #fff;
+  border-radius: 6px;
+  padding: 3px 8px;
 }
 
 header.app-header .title img.logo.visible {
@@ -45,7 +50,7 @@ header.app-header .title img.logo.visible {
 }
 
 header.app-header h1 {
-  font-size: 18px;
+  font-size: 17px;
   margin: 0;
 }
 
@@ -55,23 +60,24 @@ header.app-header .subtitle {
 }
 
 main {
-  max-width: 1100px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 18px;
 }
 
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(15, 42, 92, 0.06);
 }
 
 .month-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
@@ -81,96 +87,128 @@ main {
   color: #fff;
   border: none;
   border-radius: 6px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .month-nav button:hover { opacity: 0.9; }
 
 .month-nav .month-label {
-  font-weight: 600;
-  font-size: 16px;
-  min-width: 160px;
-}
-
-.grid-scroll {
-  overflow-x: auto;
-}
-
-table.grid {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 13px;
-}
-
-table.grid th, table.grid td {
-  border: 1px solid var(--border);
-  padding: 6px 8px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-table.grid th {
-  background: #eef1ec;
-  position: sticky;
-  top: 0;
-}
-
-table.grid td.day-col, table.grid th.day-col {
-  text-align: left;
-  font-size: 11px;
-  color: var(--muted);
-  position: sticky;
-  left: 0;
-  background: #fff;
-  z-index: 1;
-}
-
-table.grid td.day-col.weekend {
-  color: #b34747;
-}
-
-table.grid tr.today-row td.day-col {
   font-weight: 700;
+  font-size: 15px;
+  min-width: 130px;
+  color: var(--brand-primary);
+  text-transform: capitalize;
+}
+
+/* ---------- Calendario mensual ---------- */
+
+.cal-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+table.cal {
+  border-collapse: separate;
+  border-spacing: 3px;
+  width: 100%;
+  table-layout: fixed;
+}
+
+table.cal th {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand-secondary);
+  text-transform: uppercase;
+  padding-bottom: 4px;
+}
+
+table.cal td {
+  vertical-align: top;
+  border-radius: 8px;
+  background: #f6f7fb;
+  border: 1px solid var(--border);
+  height: 56px;
+  padding: 3px 4px;
+  position: relative;
+}
+
+table.cal td.blank {
+  background: transparent;
+  border: none;
+}
+
+table.cal td.today {
+  border: 2px solid var(--brand-primary);
+}
+
+table.cal td.weekend {
+  background: #eef0f7;
+}
+
+table.cal .day-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+table.cal td.today .day-num {
   color: var(--brand-primary);
 }
 
-table.grid td.cell {
-  font-weight: 600;
-  font-size: 12px;
-}
-
-table.grid td.editable {
+table.cal td.day-cell.editable {
   cursor: pointer;
 }
 
-table.grid td.editable:hover {
+table.cal td.day-cell.editable:hover {
   outline: 2px solid var(--brand-secondary);
-  outline-offset: -2px;
+  outline-offset: -1px;
 }
 
-table.grid td.overdue {
-  box-shadow: inset 0 0 0 2px #d64545;
+.tech-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 3px;
 }
+
+.tech-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.tech-dot.empty-dot {
+  background: transparent;
+  border: 1.5px dashed #c7cce0;
+}
+
+/* ---------- Leyenda ---------- */
 
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  font-size: 12px;
-  margin-top: 10px;
+  gap: 10px;
+  font-size: 11px;
+  margin-top: 12px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .swatch {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 3px;
   border: 1px solid rgba(0,0,0,0.15);
   display: inline-block;
@@ -193,7 +231,7 @@ table.grid td.overdue {
   gap: 10px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: #fff5f5;
+  background: #fff3f2;
   border: 1px solid #f3c9c9;
 }
 
@@ -266,10 +304,17 @@ footer {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #eef1ec;
+  background: #eef1f7;
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 13px;
+}
+
+.tech-chip .tech-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
 }
 
 .tech-chip button {
@@ -297,7 +342,7 @@ footer {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,32,91,0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -308,13 +353,16 @@ footer {
   background: #fff;
   border-radius: 10px;
   padding: 20px;
-  width: 320px;
+  width: 340px;
   max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
 .modal h3 {
   margin-top: 0;
   font-size: 15px;
+  color: var(--brand-primary);
 }
 
 .status-options {
@@ -343,13 +391,37 @@ footer {
   margin-bottom: 8px;
 }
 
-.modal .close-btn {
+.modal .close-btn, .modal .back-btn {
   width: 100%;
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px;
   cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.day-tech-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.day-tech-row:hover {
+  border-color: var(--brand-secondary);
+}
+
+.day-tech-row .status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
 }
 
 .sync-note {
