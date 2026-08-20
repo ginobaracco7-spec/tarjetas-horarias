@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin · Tarjetas Horarias · Agroterra New Holland</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<div id="loginScreen" class="login-box">
+  <img id="logoImgLogin" class="logo visible" style="height:60px;margin-bottom:10px;" src="/logo.png" alt="" onerror="this.style.display='none'" />
+  <h2>Control de Tarjetas Horarias</h2>
+  <p>Ingresá la contraseña de administración</p>
+  <input type="password" id="passwordInput" placeholder="Contraseña" />
+  <div class="login-error" id="loginError"></div>
+  <button id="loginBtn">Entrar</button>
+</div>
+
+<div id="appScreen" style="display:none;">
+  <header class="app-header">
+    <div class="title">
+      <img id="logoImg" class="logo" src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
+      <div>
+        <h1>Control de Tarjetas Horarias</h1>
+        <div class="subtitle">Agroterra New Holland · Panel de administración</div>
+      </div>
+    </div>
+    <button id="logoutBtn" class="primary-btn" style="background:transparent;border:1px solid #fff;">Salir</button>
+  </header>
+
+  <main>
+    <div class="card">
+      <strong>Técnicos</strong>
+      <div class="tech-manage" id="techList" style="margin-top:10px;"></div>
+      <form class="add-tech-form" id="addTechForm">
+        <input type="text" id="newTechName" placeholder="Nombre del técnico" required />
+        <button type="submit" class="primary-btn">Agregar</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="month-nav">
+        <button id="prevBtn">‹ Mes anterior</button>
+        <span class="month-label" id="monthLabel"></span>
+        <button id="nextBtn">Mes siguiente ›</button>
+        <button id="todayBtn">Hoy</button>
+      </div>
+      <p style="font-size:13px;color:#6b7770;">Hacé click en una celda para cargar el estado del día.</p>
+      <div id="gridBox">Cargando...</div>
+      <div class="legend" id="legendBox"></div>
+    </div>
+    <div class="sync-note" id="syncNote"></div>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+
+<script src="/shared.js"></script>
+<script>
+  const loginScreen = document.getElementById("loginScreen");
+  const appScreen = document.getElementById("appScreen");
+  const passwordInput = document.getElementById("passwordInput");
+  const loginError = document.getElementById("loginError");
+
+  let year, month, state = { technicians: [], entries: {} };
+  const today = new Date();
+  year = today.getFullYear();
+  month = today.getMonth();
+
+  function getPassword() {
+    return sessionStorage.getItem("admin_password") || "";
+  }
+
+  async function tryLogin(pw) {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: pw }),
+    });
+    return res.ok;
+  }
+
+  document.getElementById("loginBtn").addEventListener("click", doLogin);
+  passwordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+
+  async function doLogin() {
+    const pw = passwordInput.value;
+    loginError.textContent = "Verificando...";
+    const ok = await tryLogin(pw);
+    if (ok) {
+      sessionStorage.setItem("admin_password", pw);
+      loginScreen.style.display = "none";
+      appScreen.style.display = "block";
+      init();
+    } else {
+      loginError.textContent = "Contraseña incorrecta.";
+    }
+  }
+
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    sessionStorage.removeItem("admin_password");
+    location.reload();
+  });
+
+  const monthLabel = document.getElementById("monthLabel");
+  const gridBox = document.getElementById("gridBox");
+  const legendBox = document.getElementById("legendBox");
+  const techList = document.getElementById("techList");
+  const syncNote = document.getElementById("syncNote");
+  const modalRoot = document.getElementById("modalRoot");
+
+  renderLegend(legendBox);
+
+  function draw() {
+    monthLabel.textContent = formatMonthLabel(year, month);
+    renderGrid({ container: gridBox, state, year, month, editable: true, onCellClick: openModal });
+    drawTechs();
+  }
+
+  function drawTechs() {
+    let html = "";
+    (state.technicians || []).forEach((t) => {
+      html += `<span class="tech-chip">${escapeHtml(t.name)}<button data-id="${t.id}" data-name="${escapeHtml(t.name)}" class="rename-btn" title="Renombrar">✎</button><button data-id="${t.id}" class="remove-btn" title="Quitar">×</button></span>`;
+    });
+    techList.innerHTML = html || '<span class="empty">Sin técnicos todavía.</span>';
+    techList.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", () => removeTech(b.dataset.id)));
+    techList.querySelectorAll(".rename-btn").forEach((b) => b.addEventListener("click", () => renameTech(b.dataset.id, b.dataset.name)));
+  }
+
+  async function apiPost(url, body) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-password": getPassword() },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) {
+      sessionStorage.removeItem("admin_password");
+      location.reload();
+      throw new Error("unauthorized");
+    }
+    if (!res.ok) throw new Error("request failed");
+    return res.json();
+  }
+
+  document.getElementById("addTechForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("newTechName");
+    const name = input.value.trim();
+    if (!name) return;
+    await apiPost("/api/manage-technicians", { action: "add", name });
+    input.value = "";
+    await load();
+  });
+
+  async function removeTech(id) {
+    if (!confirm("¿Quitar este técnico de la grilla? (No borra el historial ya cargado)")) return;
+    await apiPost("/api/manage-technicians", { action: "remove", id });
+    await load();
+  }
+
+  async function renameTech(id, currentName) {
+    const name = prompt("Nuevo nombre:", currentName);
+    if (!name || !name.trim()) return;
+    await apiPost("/api/manage-technicians", { action: "rename", id, name: name.trim() });
+    await load();
+  }
+
+  function openModal(techId, date, cellEl) {
+    const tech = (state.technicians || []).find((t) => t.id === techId);
+    let html = `<div class="modal-backdrop" id="modalBackdrop"><div class="modal">
+      <h3>${escapeHtml(tech ? tech.name : "")} · ${date}</h3>
+      <div class="status-options" id="statusOptions"></div>
+      <button class="clear-btn" id="clearBtn">Borrar estado</button>
+      <button class="close-btn" id="closeBtn">Cancelar</button>
+    </div></div>`;
+    modalRoot.innerHTML = html;
+
+    const optsBox = document.getElementById("statusOptions");
+    STATUS_ORDER.forEach((key) => {
+      const meta = STATUS_META[key];
+      const btn = document.createElement("button");
+      btn.textContent = meta.label;
+      btn.style.background = meta.color;
+      btn.style.color = meta.text;
+      btn.addEventListener("click", () => setStatus(techId, date, key));
+      optsBox.appendChild(btn);
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => setStatus(techId, date, null));
+    document.getElementById("closeBtn").addEventListener("click", closeModal);
+    document.getElementById("modalBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "modalBackdrop") closeModal();
+    });
+  }
+
+  function closeModal() {
+    modalRoot.innerHTML = "";
+  }
+
+  async function setStatus(techId, date, status) {
+    await apiPost("/api/save-status", { techId, date, status });
+    closeModal();
+    await load();
+  }
+
+  document.getElementById("prevBtn").addEventListener("click", () => {
+    month--; if (month < 0) { month = 11; year--; } draw();
+  });
+  document.getElementById("nextBtn").addEventListener("click", () => {
+    month++; if (month > 11) { month = 0; year++; } draw();
+  });
+  document.getElementById("todayBtn").addEventListener("click", () => {
+    year = today.getFullYear(); month = today.getMonth(); draw();
+  });
+
+  async function load() {
+    state = await fetchState();
+    draw();
+    syncNote.textContent = state.updatedAt ? "Última actualización: " + new Date(state.updatedAt).toLocaleString("es-AR") : "";
+  }
+
+  async function init() {
+    await load();
+  }
+
+  // Auto-login if password already verified this session
+  (async () => {
+    const stored = getPassword();
+    if (stored) {
+      const ok = await tryLogin(stored);
+      if (ok) {
+        loginScreen.style.display = "none";
+        appScreen.style.display = "block";
+        init();
+      }
+    }
+  })();
+</script>
+</body>
+</html>

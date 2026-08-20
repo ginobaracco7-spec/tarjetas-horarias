@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Control de Tarjetas Horarias · Agroterra New Holland</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header class="app-header">
+  <div class="title">
+    <img id="logoImg" class="logo" src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
+    <div>
+      <h1>Control de Tarjetas Horarias</h1>
+      <div class="subtitle">Agroterra New Holland</div>
+    </div>
+  </div>
+  <div class="subtitle">Vista para técnicos · solo lectura</div>
+</header>
+
+<main>
+  <div class="card">
+    <strong>Tarjetas pendientes de esta semana</strong>
+    <div id="pendingBox" style="margin-top:10px;">Cargando...</div>
+  </div>
+
+  <div class="card">
+    <div class="month-nav">
+      <button id="prevBtn">‹ Mes anterior</button>
+      <span class="month-label" id="monthLabel"></span>
+      <button id="nextBtn">Mes siguiente ›</button>
+      <button id="todayBtn">Hoy</button>
+    </div>
+    <div id="gridBox">Cargando...</div>
+    <div class="legend" id="legendBox"></div>
+  </div>
+
+  <div class="sync-note" id="syncNote"></div>
+</main>
+
+<footer>Se actualiza automáticamente. Si no ves cambios recientes, actualizá la página.</footer>
+
+<script src="/shared.js"></script>
+<script>
+  let year, month;
+  let state = { technicians: [], entries: {} };
+  const today = new Date();
+  year = today.getFullYear();
+  month = today.getMonth();
+
+  const monthLabel = document.getElementById("monthLabel");
+  const gridBox = document.getElementById("gridBox");
+  const pendingBox = document.getElementById("pendingBox");
+  const legendBox = document.getElementById("legendBox");
+  const syncNote = document.getElementById("syncNote");
+
+  renderLegend(legendBox);
+
+  function draw() {
+    monthLabel.textContent = formatMonthLabel(year, month);
+    renderGrid({ container: gridBox, state, year, month, editable: false });
+    drawPending();
+  }
+
+  function drawPending() {
+    const pending = pendingThisWeek(state, new Date());
+    if (pending.length === 0) {
+      pendingBox.innerHTML = `<span style="color:#2e7d32;font-weight:600;">Sin pendientes por ahora 🎉</span>`;
+      return;
+    }
+    let html = '<div class="pending-list">';
+    pending.forEach((p) => {
+      const daysTxt = p.days.map((d) => DAY_NAMES_SHORT[d.dow]).join(", ");
+      html += `<div class="pending-item"><span class="tech-name">${escapeHtml(p.tech.name)}</span><span class="badge-count">${p.days.length}</span><span class="days">${daysTxt}</span></div>`;
+    });
+    html += "</div>";
+    pendingBox.innerHTML = html;
+  }
+
+  async function load() {
+    try {
+      state = await fetchState();
+      draw();
+      syncNote.textContent = state.updatedAt ? "Última actualización: " + new Date(state.updatedAt).toLocaleString("es-AR") : "";
+    } catch (e) {
+      gridBox.innerHTML = '<p class="empty">No se pudo cargar la información. Reintentando...</p>';
+    }
+  }
+
+  document.getElementById("prevBtn").addEventListener("click", () => {
+    month--; if (month < 0) { month = 11; year--; } draw();
+  });
+  document.getElementById("nextBtn").addEventListener("click", () => {
+    month++; if (month > 11) { month = 0; year++; } draw();
+  });
+  document.getElementById("todayBtn").addEventListener("click", () => {
+    year = today.getFullYear(); month = today.getMonth(); draw();
+  });
+
+  load();
+  setInterval(load, 25000);
+</script>
+</body>
+</html>
